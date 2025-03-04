@@ -1,51 +1,31 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/app-sidebar"
-
-import { useCallback } from 'react';
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  MiniMap,
-  addEdge,
-  useNodesState,
-  useEdgesState,
-  type OnConnect,
-} from '@xyflow/react';
-
 import '@xyflow/react/dist/style.css';
 
-import { initialNodes, nodeTypes } from './nodes';
-import { initialEdges, edgeTypes } from './edges';
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar"
+import { useMediaQuery } from "react-responsive";
+import { Route, Routes } from "react-router";
+import Graph from "./pages/graph";
+import { useState } from 'react';
 
 export default function App() {
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const onConnect: OnConnect = useCallback(
-    (connection) => setEdges((edges) => addEdge(connection, edges)),
-    [setEdges]
-  );
+  const [isDark, setIsDark] = useState(true);
+  useMediaQuery(
+    {
+      query: "(prefers-color-scheme: dark)",
+    },
+    undefined,
+    (isSystemDark) => setIsDark(isSystemDark)
+  )
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className={isDark ? "dark" : ""}>
       <AppSidebar />
-      <SidebarTrigger />
-
-      <div className="h-screen w-screen">
-        <ReactFlow
-          nodes={nodes}
-          nodeTypes={nodeTypes}
-          onNodesChange={onNodesChange}
-          edges={edges}
-          edgeTypes={edgeTypes}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          fitView
-        >
-          <Background />
-          <MiniMap />
-          <Controls />
-        </ReactFlow>
+      <div className="relative flex flex-col h-screen">
+        <SidebarTrigger className="absolute top-2 left-2 z-10" />
+        <Routes>
+          <Route path="/" element={<Graph />} />
+          <Route path="/settings" element={<Graph />} />
+        </Routes>
       </div>
     </SidebarProvider>
   );
