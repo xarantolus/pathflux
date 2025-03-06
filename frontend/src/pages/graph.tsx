@@ -23,7 +23,7 @@ export default function Graph() {
 	);
 
 	return (
-		<div className="h-screen w-screen">
+		<div className="w-full h-screen">
 			<ReactFlow
 				colorMode='system'
 				nodes={nodes}

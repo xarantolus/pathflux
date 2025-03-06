@@ -20,7 +20,7 @@ export default function App() {
   return (
     <SidebarProvider className={isDark ? "dark" : ""}>
       <AppSidebar />
-      <div className="relative flex flex-col h-screen">
+      <div className="relative flex flex-col w-full h-full">
         <SidebarTrigger className="absolute top-2 left-2 z-10" />
         <Routes>
           <Route path="/" element={<Graph />} />
