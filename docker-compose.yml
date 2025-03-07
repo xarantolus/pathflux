@@ -1,0 +1,20 @@
+networks:
+  internal_net:
+    internal: false
+  external_net:
+    driver: bridge
+
+services:
+  meilisearch:
+    image: getmeili/meilisearch:v1.12
+    ports:
+      - "7700:7700"
+    volumes:
+      - ./meili_data:/meili_data:Z
+    restart: unless-stopped
+    environment:
+      - MEILI_LOG_LEVEL=WARN
+    env_file:
+      - .env
+    networks:
+      - internal_net
