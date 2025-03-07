@@ -7,7 +7,7 @@ import (
 	"os"
 	"pathflux/config"
 	"pathflux/meili"
-	"time"
+	"pathflux/web"
 )
 
 func main() {
@@ -41,7 +41,14 @@ func main() {
 		log.Fatalf("failed to create MeiliSearch client: %v", err)
 	}
 
-	_ = client
+	server := &web.Server{
+		Cfg: cfg,
+		DB:  client,
+	}
 
-	time.Sleep(5 * time.Minute)
+	if err := server.Run(); err != nil {
+		log.Fatalf("failed to run server: %v", err)
+	}
+
+	log.Fatal("server stopped unexpectedly")
 }

@@ -17,6 +17,7 @@ type GitLab struct {
 }
 
 type Config struct {
+	Port            int
 	MeiliMasterKey  string
 	HostExternalURL string
 	GitLab          GitLab
@@ -31,6 +32,16 @@ func FromEnvironment() (c *Config, err error) {
 			return "", fmt.Errorf("missing env variable %q", key)
 		}
 		return value, nil
+	}
+
+	port, err := getEnv("PORT")
+	if err != nil {
+		port = "8080"
+	}
+
+	c.Port, err = strconv.Atoi(port)
+	if err != nil {
+		return nil, fmt.Errorf("port is not a number: %w", err)
 	}
 
 	c.MeiliMasterKey, err = getEnv("MEILI_MASTER_KEY")

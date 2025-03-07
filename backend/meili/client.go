@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	USERS_INDEX  = "gitlab_users"
-	ISSUES_INDEX = "gitlab_items"
+	USERS_INDEX = "gitlab_users"
+	ITEMS_INDEX = "gitlab_items"
 )
 
 type ItemUpdateCallback func(items []GitLabItem)
@@ -63,7 +63,7 @@ func NewDBClient(ctx context.Context, gitlabConfig config.GitLab, logger *log.Lo
 	err = ensureIndexExists(
 		meili,
 		logger,
-		ISSUES_INDEX,
+		ITEMS_INDEX,
 		"id",
 		[]string{"title", "slug", "iid", "description", "labels", "state"},
 		[]string{"group_id", "kind", "updated_at"},
@@ -326,7 +326,7 @@ const (
 
 func (c *DBClient) syncGroupItems(group *gitlab.Group) (count int, err error) {
 	// Get the last update time from the index to only fetch newer items
-	index := c.client.Index(ISSUES_INDEX)
+	index := c.client.Index(ITEMS_INDEX)
 
 	var findNewestUpdate = func(kind ItemKind) *time.Time {
 		// Get the newest update time from the index
