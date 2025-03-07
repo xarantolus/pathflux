@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"pathflux/config"
@@ -26,7 +27,16 @@ func main() {
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 
 	dbLogger := log.New(logger.Writer(), "[meili] ", log.LstdFlags)
-	client, err := meili.NewDBClient(ctx, cfg.GitLab, dbLogger, meiliHost, meiliAPIKey)
+
+	client, err := meili.NewDBClient(ctx, cfg.GitLab, dbLogger, meiliHost, meiliAPIKey, func(items []meili.GitLabItem) {
+		for _, item := range items {
+			fmt.Println(item.Title)
+		}
+	}, func(items []meili.User) {
+		for _, item := range items {
+			fmt.Println(item.Name)
+		}
+	})
 	if err != nil {
 		log.Fatalf("failed to create MeiliSearch client: %v", err)
 	}
