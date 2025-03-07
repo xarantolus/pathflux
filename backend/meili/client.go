@@ -61,7 +61,7 @@ func NewDBClient(ctx context.Context, gitlabConfig config.GitLab, logger *log.Lo
 		meili,
 		logger,
 		ISSUES_INDEX,
-		"web_url", // Using web_url as primary key since it's unique
+		"id",
 		[]string{"title", "slug", "iid", "description", "labels", "state"},
 	)
 	if err != nil {
@@ -154,7 +154,6 @@ func ensureIndexExists(client meilisearch.ServiceManager, logger *log.Logger, in
 		"exactness",
 	}
 	settingsChanged = settingsChanged || !reflect.DeepEqual(originalSettings.RankingRules, currentSettings.RankingRules)
-
 	if settingsChanged {
 		logger.Printf("Updating index %q settings", indexName)
 		settingsTask, err := index.UpdateSettings(currentSettings)
@@ -362,6 +361,7 @@ func (c *DBClient) syncGroupItems(group *gitlab.Group) (count int, err error) {
 			}
 
 			outItem = GitLabItem{
+				ID:            "i" + strconv.Itoa(item.ID),
 				Kind:          "issue",
 				InvolvedUsers: deduplicateUsers(involvedUsers),
 				WebURL:        item.WebURL,
@@ -400,6 +400,7 @@ func (c *DBClient) syncGroupItems(group *gitlab.Group) (count int, err error) {
 			}
 
 			outItem = GitLabItem{
+				ID:            "mr" + strconv.Itoa(item.ID),
 				Kind:          "merge_request",
 				InvolvedUsers: deduplicateUsers(involvedUsers),
 				WebURL:        item.WebURL,
@@ -427,6 +428,7 @@ func (c *DBClient) syncGroupItems(group *gitlab.Group) (count int, err error) {
 			}
 
 			outItem = GitLabItem{
+				ID:            "e" + strconv.Itoa(item.ID),
 				Kind:          "epic",
 				InvolvedUsers: deduplicateUsers(involvedUsers),
 				WebURL:        item.WebURL,
@@ -446,7 +448,7 @@ func (c *DBClient) syncGroupItems(group *gitlab.Group) (count int, err error) {
 
 		// Try to find the item in our index
 		var existingItem GitLabItem
-		err := index.GetDocument(outItem.WebURL, &meilisearch.DocumentQuery{
+		err := index.GetDocument(outItem.ID, &meilisearch.DocumentQuery{
 			Fields: []string{"*"},
 		}, &existingItem)
 		// If item doesn't exist or has changed, add it to updates and call the callback
@@ -528,6 +530,8 @@ const (
 
 // Basically combines things from an issue, merge request, epic etc.
 type GitLabItem struct {
+	ID string `json:"id"`
+
 	Kind        string  `json:"kind"`
 	WebURL      string  `json:"web_url"`
 	Slug        string  `json:"slug"`
