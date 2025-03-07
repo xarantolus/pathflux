@@ -2,6 +2,7 @@ package meili
 
 import (
 	"fmt"
+	"time"
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
@@ -33,26 +34,38 @@ func listAllGroupMembers(g *gitlab.Client, groupID interface{}) (users []*gitlab
 	return users, nil
 }
 
-func listAllGroupIssues(client *gitlab.Client, groupID any, outputChannel chan any) error {
+func listAllGroupIssues(client *gitlab.Client, groupID any, updatedAfter *time.Time) ([]*gitlab.Issue, error) {
+	var allIssues []*gitlab.Issue
+
 	options := &gitlab.ListGroupIssuesOptions{
 		ListOptions: gitlab.ListOptions{
 			Page:    1,
 			PerPage: perPageEntries,
 		},
-		// WithLabelDetails: gitlab.Ptr(true),
+		OrderBy: gitlab.Ptr("updated_at"),
+		Sort:    gitlab.Ptr("desc"),
+	}
+
+	if updatedAfter != nil {
+		options.UpdatedAfter = updatedAfter
 	}
 
 	for {
 		issues, resp, err := client.Issues.ListGroupIssues(groupID, options)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		for _, issue := range issues {
 			if issue.Confidential {
 				continue
 			}
-			outputChannel <- issue
+			allIssues = append(allIssues, issue)
+		}
+
+		// Stop pagination if we've reached or passed the date threshold
+		if updatedAfter != nil && len(issues) > 0 && issues[len(issues)-1].UpdatedAt.Before(*updatedAfter) {
+			break
 		}
 
 		if resp.CurrentPage >= resp.TotalPages {
@@ -62,26 +75,36 @@ func listAllGroupIssues(client *gitlab.Client, groupID any, outputChannel chan a
 		options.Page = resp.NextPage
 	}
 
-	return nil
+	return allIssues, nil
 }
 
-func listAllGroupMergeRequests(client *gitlab.Client, groupID any, outputChannel chan any) error {
+func listAllGroupMergeRequests(client *gitlab.Client, groupID any, updatedAfter *time.Time) ([]*gitlab.BasicMergeRequest, error) {
+	var allMergeRequests []*gitlab.BasicMergeRequest
+
 	options := &gitlab.ListGroupMergeRequestsOptions{
 		ListOptions: gitlab.ListOptions{
 			Page:    1,
 			PerPage: perPageEntries,
 		},
-		// WithLabelsDetails: gitlab.Ptr(true),
+		OrderBy: gitlab.Ptr("updated_at"),
+		Sort:    gitlab.Ptr("desc"),
+	}
+
+	if updatedAfter != nil {
+		options.UpdatedAfter = updatedAfter
 	}
 
 	for {
 		mergeRequests, resp, err := client.MergeRequests.ListGroupMergeRequests(groupID, options)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		for _, mergeRequest := range mergeRequests {
-			outputChannel <- mergeRequest
+		allMergeRequests = append(allMergeRequests, mergeRequests...)
+
+		// Stop pagination if we've reached or passed the date threshold
+		if updatedAfter != nil && len(mergeRequests) > 0 && mergeRequests[len(mergeRequests)-1].UpdatedAt.Before(*updatedAfter) {
+			break
 		}
 
 		if resp.CurrentPage >= resp.TotalPages {
@@ -91,28 +114,38 @@ func listAllGroupMergeRequests(client *gitlab.Client, groupID any, outputChannel
 		options.Page = resp.NextPage
 	}
 
-	return nil
+	return allMergeRequests, nil
 }
 
-func listAllGroupEpics(client *gitlab.Client, groupID any, outputChannel chan any) error {
+func listAllGroupEpics(client *gitlab.Client, groupID any, updatedAfter *time.Time) ([]*gitlab.Epic, error) {
+	var allEpics []*gitlab.Epic
+
 	options := &gitlab.ListGroupEpicsOptions{
 		ListOptions: gitlab.ListOptions{
 			Page:    1,
 			PerPage: perPageEntries,
 		},
-		// WithLabelDetails:        gitlab.Ptr(true),
+		OrderBy:                 gitlab.Ptr("updated_at"),
+		Sort:                    gitlab.Ptr("desc"),
 		IncludeAncestorGroups:   gitlab.Ptr(true),
 		IncludeDescendantGroups: gitlab.Ptr(true),
+	}
+
+	if updatedAfter != nil {
+		options.UpdatedAfter = updatedAfter
 	}
 
 	for {
 		epics, resp, err := client.Epics.ListGroupEpics(groupID, options)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		for _, epic := range epics {
-			outputChannel <- epic
+		allEpics = append(allEpics, epics...)
+
+		// Stop pagination if we've reached or passed the date threshold
+		if updatedAfter != nil && len(epics) > 0 && epics[len(epics)-1].UpdatedAt.Before(*updatedAfter) {
+			break
 		}
 
 		if resp.CurrentPage >= resp.TotalPages {
@@ -122,5 +155,5 @@ func listAllGroupEpics(client *gitlab.Client, groupID any, outputChannel chan an
 		options.Page = resp.NextPage
 	}
 
-	return nil
+	return allEpics, nil
 }

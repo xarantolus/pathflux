@@ -2,6 +2,7 @@ package meili
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -51,6 +52,8 @@ func NewDBClient(ctx context.Context, gitlabConfig config.GitLab, logger *log.Lo
 		USERS_INDEX,
 		"id",
 		[]string{"name", "username", "bio", "id"},
+		nil,
+		nil,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up users index: %w", err)
@@ -63,6 +66,8 @@ func NewDBClient(ctx context.Context, gitlabConfig config.GitLab, logger *log.Lo
 		ISSUES_INDEX,
 		"id",
 		[]string{"title", "slug", "iid", "description", "labels", "state"},
+		[]string{"group_id", "kind", "updated_at"},
+		[]string{"updated_at"},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up issues index: %w", err)
@@ -99,7 +104,7 @@ func NewDBClient(ctx context.Context, gitlabConfig config.GitLab, logger *log.Lo
 	return
 }
 
-func ensureIndexExists(client meilisearch.ServiceManager, logger *log.Logger, indexName string, primaryKey string, searchableAttributes []string) error {
+func ensureIndexExists(client meilisearch.ServiceManager, logger *log.Logger, indexName string, primaryKey string, searchableAttributes []string, filterableAttributes []string, sortableAttributes []string) error {
 	// Check if index exists
 	_, err := client.GetIndex(indexName)
 	if err != nil {
@@ -145,6 +150,15 @@ func ensureIndexExists(client meilisearch.ServiceManager, logger *log.Logger, in
 		currentSettings.SearchableAttributes = searchableAttributes
 		settingsChanged = settingsChanged || !reflect.DeepEqual(originalSettings.SearchableAttributes, currentSettings.SearchableAttributes)
 	}
+	if filterableAttributes != nil {
+		currentSettings.FilterableAttributes = filterableAttributes
+		settingsChanged = settingsChanged || !reflect.DeepEqual(originalSettings.FilterableAttributes, currentSettings.FilterableAttributes)
+	}
+	if sortableAttributes != nil {
+		currentSettings.SortableAttributes = sortableAttributes
+		settingsChanged = settingsChanged || !reflect.DeepEqual(originalSettings.SortableAttributes, currentSettings.SortableAttributes)
+	}
+
 	currentSettings.RankingRules = []string{
 		"sort",
 		"words",
@@ -302,148 +316,115 @@ func (c *DBClient) syncUsers() (count int, err error) {
 	return len(users), nil
 }
 
+type ItemKind string
+
+const (
+	ItemKindIssue        ItemKind = "issue"
+	ItemKindMergeRequest ItemKind = "merge_request"
+	ItemKindEpic         ItemKind = "epic"
+)
+
 func (c *DBClient) syncGroupItems(group *gitlab.Group) (count int, err error) {
-	var (
-		outputChannel = make(chan any, perPageEntries)
-		errorChannel  = make(chan error)
-	)
-	go func() {
-		issueErr := listAllGroupIssues(c.gitlabClient, group.ID, outputChannel)
-		prErr := listAllGroupMergeRequests(c.gitlabClient, group.ID, outputChannel)
-		epicErr := listAllGroupEpics(c.gitlabClient, group.ID, outputChannel)
+	// Get the last update time from the index to only fetch newer items
+	index := c.client.Index(ISSUES_INDEX)
 
-		close(outputChannel)
+	var findNewestUpdate = func(kind ItemKind) *time.Time {
+		// Get the newest update time from the index
+		item, err := index.Search("", &meilisearch.SearchRequest{
+			Limit:                1,
+			AttributesToRetrieve: []string{"updated_at"},
+			Sort:                 []string{"updated_at:desc"},
+			Filter: []string{
+				fmt.Sprintf("group_id=%d", group.ID),
+				fmt.Sprintf("kind=%s", kind),
+			},
+		})
+		if err != nil {
+			c.logger.Printf("Failed to get newest update time for %q: %v", kind, err)
+			return nil
+		}
 
-		// send nil or combined error on error channel
-		var combinedError error = nil
-		var errors = []error{issueErr, prErr, epicErr}
-		for _, err := range errors {
-			if err != nil {
-				if combinedError == nil {
-					combinedError = err
-				} else {
-					combinedError = fmt.Errorf("%w; %v", combinedError, err)
-				}
+		if len(item.Hits) != 1 {
+			return nil
+		}
+
+		m, ok := item.Hits[0].(map[string]interface{})
+		if !ok {
+			return nil
+		}
+
+		v, ok := m["updated_at"].(string)
+		if !ok {
+			return nil
+		}
+
+		var t time.Time
+		err = json.Unmarshal([]byte("\""+v+"\""), &t)
+		if err != nil {
+			return nil
+		}
+
+		return &t
+	}
+
+	// Get all items in parallel and handle any errors
+	issues, issueErr := listAllGroupIssues(c.gitlabClient, group.ID, findNewestUpdate(ItemKindIssue))
+	mergeRequests, prErr := listAllGroupMergeRequests(c.gitlabClient, group.ID, findNewestUpdate(ItemKindMergeRequest))
+	epics, epicErr := listAllGroupEpics(c.gitlabClient, group.ID, findNewestUpdate(ItemKindEpic))
+
+	// Combine errors if any occurred
+	var combinedError error
+	for _, err := range []error{issueErr, prErr, epicErr} {
+		if err != nil {
+			if combinedError == nil {
+				combinedError = err
+			} else {
+				combinedError = fmt.Errorf("%w; %v", combinedError, err)
 			}
 		}
-		errorChannel <- combinedError
-	}()
+	}
 
 	var updatedItems []GitLabItem
 
-	index := c.client.Index(ISSUES_INDEX)
+	// Process issues
+	for _, item := range issues {
+		var involvedUsers []User
+		if item.Author != nil {
+			involvedUsers = append(involvedUsers, User{
+				GitlabID:  item.Author.ID,
+				Username:  item.Author.Username,
+				Name:      item.Author.Name,
+				State:     item.Author.State,
+				AvatarURL: item.Author.AvatarURL,
+				WebURL:    item.Author.WebURL,
+			})
+		}
+		for _, assignee := range item.Assignees {
+			involvedUsers = append(involvedUsers, User{
+				GitlabID:  assignee.ID,
+				Username:  assignee.Username,
+				Name:      assignee.Name,
+				State:     assignee.State,
+				AvatarURL: assignee.AvatarURL,
+				WebURL:    assignee.WebURL,
+			})
+		}
 
-	for input := range outputChannel {
-		var outItem GitLabItem
-		switch item := input.(type) {
-		case *gitlab.Issue:
-			var involvedUsers []User
-
-			if item.Author != nil {
-				involvedUsers = append(involvedUsers, User{
-					GitlabID:  item.Author.ID,
-					Username:  item.Author.Username,
-					Name:      item.Author.Name,
-					State:     item.Author.State,
-					AvatarURL: item.Author.AvatarURL,
-					WebURL:    item.Author.WebURL,
-				})
-			}
-			for _, assignee := range item.Assignees {
-				involvedUsers = append(involvedUsers, User{
-					GitlabID:  assignee.ID,
-					Username:  assignee.Username,
-					Name:      assignee.Name,
-					State:     assignee.State,
-					AvatarURL: assignee.AvatarURL,
-					WebURL:    assignee.WebURL,
-				})
-			}
-
-			outItem = GitLabItem{
-				ID:            "i" + strconv.Itoa(item.ID),
-				Kind:          "issue",
-				InvolvedUsers: deduplicateUsers(involvedUsers),
-				WebURL:        item.WebURL,
-				Title:         item.Title,
-				Description:   item.Description,
-				IID:           item.IID,
-				State:         GitLabItemState(item.State),
-				CreatedAt:     item.CreatedAt,
-				UpdatedAt:     item.UpdatedAt,
-				ClosedAt:      item.ClosedAt,
-				Slug:          strings.Split(item.References.Full, "#")[0] + "#" + strconv.Itoa(item.IID),
-				Labels:        convertLabels(item.LabelDetails, item.Labels),
-			}
-		case *gitlab.BasicMergeRequest:
-			var involvedUsers []User
-			if item.Author != nil {
-				involvedUsers = append(involvedUsers, User{
-					GitlabID:  item.Author.ID,
-					Username:  item.Author.Username,
-					Name:      item.Author.Name,
-					State:     item.Author.State,
-					AvatarURL: item.Author.AvatarURL,
-					WebURL:    item.Author.WebURL,
-				})
-			}
-
-			for _, assignee := range item.Assignees {
-				involvedUsers = append(involvedUsers, User{
-					GitlabID:  assignee.ID,
-					Username:  assignee.Username,
-					Name:      assignee.Name,
-					State:     assignee.State,
-					AvatarURL: assignee.AvatarURL,
-					WebURL:    assignee.WebURL,
-				})
-			}
-
-			outItem = GitLabItem{
-				ID:            "mr" + strconv.Itoa(item.ID),
-				Kind:          "merge_request",
-				InvolvedUsers: deduplicateUsers(involvedUsers),
-				WebURL:        item.WebURL,
-				Title:         item.Title,
-				Description:   item.Description,
-				IID:           item.IID,
-				CreatedAt:     item.CreatedAt,
-				UpdatedAt:     item.UpdatedAt,
-				ClosedAt:      item.ClosedAt,
-				State:         GitLabItemState(item.State),
-				Slug:          strings.Split(item.References.Full, "!")[0] + "!" + strconv.Itoa(item.IID),
-				Labels:        convertLabels(item.LabelDetails, item.Labels),
-			}
-		case *gitlab.Epic:
-			var involvedUsers []User
-			if item.Author != nil {
-				involvedUsers = append(involvedUsers, User{
-					GitlabID:  item.Author.ID,
-					Username:  item.Author.Username,
-					Name:      item.Author.Name,
-					State:     item.Author.State,
-					AvatarURL: item.Author.AvatarURL,
-					WebURL:    item.Author.WebURL,
-				})
-			}
-
-			outItem = GitLabItem{
-				ID:            "e" + strconv.Itoa(item.ID),
-				Kind:          "epic",
-				InvolvedUsers: deduplicateUsers(involvedUsers),
-				WebURL:        item.WebURL,
-				Title:         item.Title,
-				Description:   item.Description,
-				IID:           item.IID,
-				CreatedAt:     item.CreatedAt,
-				UpdatedAt:     item.UpdatedAt,
-				ClosedAt:      item.ClosedAt,
-				State:         GitLabItemState(item.State),
-				Slug:          "&" + strconv.Itoa(item.IID),
-				Labels:        convertLabels(nil, item.Labels),
-			}
-		default:
-			panic("invalid type: " + fmt.Sprintf("%T", item))
+		outItem := GitLabItem{
+			ID:            "i" + strconv.Itoa(item.ID),
+			Kind:          ItemKindIssue,
+			InvolvedUsers: deduplicateUsers(involvedUsers),
+			WebURL:        item.WebURL,
+			Title:         item.Title,
+			Description:   item.Description,
+			IID:           item.IID,
+			State:         GitLabItemState(item.State),
+			CreatedAt:     item.CreatedAt,
+			UpdatedAt:     item.UpdatedAt,
+			ClosedAt:      item.ClosedAt,
+			Slug:          strings.Split(item.References.Full, "#")[0] + "#" + strconv.Itoa(item.IID),
+			Labels:        convertLabels(item.LabelDetails, item.Labels),
+			GroupID:       group.ID,
 		}
 
 		// Try to find the item in our index
@@ -451,12 +432,113 @@ func (c *DBClient) syncGroupItems(group *gitlab.Group) (count int, err error) {
 		err := index.GetDocument(outItem.ID, &meilisearch.DocumentQuery{
 			Fields: []string{"*"},
 		}, &existingItem)
-		// If item doesn't exist or has changed, add it to updates and call the callback
+		// If item doesn't exist or has changed, add it to updates
 		if err != nil || !reflect.DeepEqual(existingItem, outItem) {
 			updatedItems = append(updatedItems, outItem)
 		}
 	}
 
+	// Process merge requests
+	for _, item := range mergeRequests {
+		var involvedUsers []User
+		if item.Author != nil {
+			involvedUsers = append(involvedUsers, User{
+				GitlabID:  item.Author.ID,
+				Username:  item.Author.Username,
+				Name:      item.Author.Name,
+				State:     item.Author.State,
+				AvatarURL: item.Author.AvatarURL,
+				WebURL:    item.Author.WebURL,
+			})
+		}
+
+		for _, assignee := range item.Assignees {
+			involvedUsers = append(involvedUsers, User{
+				GitlabID:  assignee.ID,
+				Username:  assignee.Username,
+				Name:      assignee.Name,
+				State:     assignee.State,
+				AvatarURL: assignee.AvatarURL,
+				WebURL:    assignee.WebURL,
+			})
+		}
+
+		outItem := GitLabItem{
+			ID:            "mr" + strconv.Itoa(item.ID),
+			Kind:          ItemKindMergeRequest,
+			InvolvedUsers: deduplicateUsers(involvedUsers),
+			WebURL:        item.WebURL,
+			Title:         item.Title,
+			Description:   item.Description,
+			IID:           item.IID,
+			CreatedAt:     item.CreatedAt,
+			UpdatedAt:     item.UpdatedAt,
+			ClosedAt:      item.ClosedAt,
+			State:         GitLabItemState(item.State),
+			Slug:          strings.Split(item.References.Full, "!")[0] + "!" + strconv.Itoa(item.IID),
+			Labels:        convertLabels(item.LabelDetails, item.Labels),
+			GroupID:       group.ID,
+		}
+
+		// Try to find the item in our index
+		var existingItem GitLabItem
+		err := index.GetDocument(outItem.ID, &meilisearch.DocumentQuery{
+			Fields: []string{"*"},
+		}, &existingItem)
+		// If item doesn't exist or has changed, add it to updates
+		if err != nil || !reflect.DeepEqual(existingItem, outItem) {
+			updatedItems = append(updatedItems, outItem)
+		}
+	}
+
+	// Process epics
+	for _, item := range epics {
+		var involvedUsers []User
+		if item.Author != nil {
+			involvedUsers = append(involvedUsers, User{
+				GitlabID:  item.Author.ID,
+				Username:  item.Author.Username,
+				Name:      item.Author.Name,
+				State:     item.Author.State,
+				AvatarURL: item.Author.AvatarURL,
+				WebURL:    item.Author.WebURL,
+			})
+		}
+
+		outItem := GitLabItem{
+			ID:            "e" + strconv.Itoa(item.ID),
+			Kind:          ItemKindEpic,
+			InvolvedUsers: deduplicateUsers(involvedUsers),
+			WebURL:        item.WebURL,
+			Title:         item.Title,
+			Description:   item.Description,
+			IID:           item.IID,
+			CreatedAt:     item.CreatedAt,
+			UpdatedAt:     item.UpdatedAt,
+			ClosedAt:      item.ClosedAt,
+			State:         GitLabItemState(item.State),
+			Slug:          "&" + strconv.Itoa(item.IID),
+			Labels:        convertLabels(nil, item.Labels),
+			GroupID:       group.ID,
+		}
+
+		// Try to find the item in our index
+		var existingItem GitLabItem
+		err := index.GetDocument(outItem.ID, &meilisearch.DocumentQuery{
+			Fields: []string{"*"},
+		}, &existingItem)
+		// If item doesn't exist or has changed, add it to updates
+		if err != nil || !reflect.DeepEqual(existingItem, outItem) {
+			updatedItems = append(updatedItems, outItem)
+		}
+	}
+
+	// If there are no items to update, return early
+	if len(updatedItems) == 0 {
+		return 0, combinedError
+	}
+
+	// Add all updated items to the index
 	task, err := index.AddDocuments(updatedItems)
 	if err != nil {
 		return 0, fmt.Errorf("failed to add items: %w", err)
@@ -473,7 +555,7 @@ func (c *DBClient) syncGroupItems(group *gitlab.Group) (count int, err error) {
 
 	c.updateItemCallback(updatedItems)
 
-	return len(updatedItems), <-errorChannel
+	return len(updatedItems), combinedError
 }
 
 func deduplicateUsers(users []User) []User {
@@ -532,12 +614,14 @@ const (
 type GitLabItem struct {
 	ID string `json:"id"`
 
-	Kind        string  `json:"kind"`
-	WebURL      string  `json:"web_url"`
-	Slug        string  `json:"slug"`
-	Labels      []Label `json:"labels"`
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
+	GroupID int `json:"group_id"`
+
+	Kind        ItemKind `json:"kind"`
+	WebURL      string   `json:"web_url"`
+	Slug        string   `json:"slug"`
+	Labels      []Label  `json:"labels"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
 
 	InvolvedUsers []User `json:"involved_users"`
 
