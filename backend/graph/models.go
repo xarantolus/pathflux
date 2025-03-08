@@ -40,3 +40,10 @@ type Edge struct {
 
 	MarkerEnd string `json:"markerEnd"`
 }
+
+type CommentNode struct {
+	Node
+
+	// Comment is a markdown string
+	Comment string `json:"comment"`
+}

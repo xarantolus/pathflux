@@ -107,7 +107,7 @@ const GitLabItemCard: React.FC<GitLabItemCardProps> = ({ item,
 				{/* Involved users */}
 				{item.involved_users && item.involved_users.length > 0 && (
 					<div className="ml-2">
-						<UserAvatars users={item.involved_users} maxDisplayed={3} size="md" />
+						<UserAvatars users={item.involved_users} size="md" />
 					</div>
 				)}
 

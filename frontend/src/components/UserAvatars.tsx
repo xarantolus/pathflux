@@ -16,9 +16,10 @@ interface UserAvatarsProps {
 
 const UserAvatars: React.FC<UserAvatarsProps> = ({
 	users,
-	maxDisplayed = 3,
+	maxDisplayed = 5,
 	size = 'md'
 }) => {
+	maxDisplayed = Math.max(1, maxDisplayed-1);
 	if (!users || users.length === 0) return null;
 
 	const avatarSizeClass = {
@@ -39,12 +40,19 @@ const UserAvatars: React.FC<UserAvatarsProps> = ({
 		return split.length > 1 ? `${split[0].charAt(0)}${split[split.length - 1].charAt(0)}` : split[0].charAt(0);
 	}
 
+	// Determine how many avatars to display
+	const remainingCount = users.length - maxDisplayed;
+	// If there's just 1 extra user, show them instead of "+1"
+	const displayCount = remainingCount === 1 ? maxDisplayed + 1 : maxDisplayed;
+	// Only show the +N indicator if there are at least 2 users remaining
+	const showRemainingIndicator = remainingCount > 1;
+
 	return (
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<div className="flex -space-x-2">
-						{users.slice(0, maxDisplayed).map(user => (
+						{users.slice(0, displayCount).map(user => (
 							<Avatar key={user.id} className={`${avatarSizeClass} border border-border`}>
 								<AvatarImage
 									src={user.avatar_url}
@@ -55,10 +63,10 @@ const UserAvatars: React.FC<UserAvatarsProps> = ({
 								</AvatarFallback>
 							</Avatar>
 						))}
-						{users.length > maxDisplayed && (
+						{showRemainingIndicator && (
 							<Avatar className={`${avatarSizeClass} border border-border bg-muted`}>
 								<AvatarFallback className={`${textSizeClass} bg-muted`}>
-									+{users.length - maxDisplayed}
+									+{users.length - displayCount}
 								</AvatarFallback>
 							</Avatar>
 						)}

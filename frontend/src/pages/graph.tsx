@@ -8,58 +8,95 @@ import {
 	useNodesState,
 	useEdgesState,
 	type OnConnect,
-	Node,
+	NodeMouseHandler,
 } from '@xyflow/react';
 
 import { initialNodes, nodeTypes } from '../nodes';
 import { initialEdges, edgeTypes } from '../edges';
-import { default as ContextMenu, ContextMenuProps} from '@/components/graph/node-contextmenu';
+// import {
+// 	ContextMenu,
+// 	ContextMenuContent,
+// 	ContextMenuItem,
+// 	ContextMenuTrigger,
+// 	ContextMenuSeparator,
+// } from "@/components/ui/context-menu";
+
+interface NodeContextMenuProps {
+	x: number;
+	y: number;
+	nodeId: string;
+	isOpen: boolean;
+}
 
 export default function Graph() {
-	const [nodes, , onNodesChange] = useNodesState(initialNodes);
+	const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 	const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 	const onConnect: OnConnect = useCallback(
 		(connection) => setEdges((edges) => addEdge(connection, edges)),
 		[setEdges]
 	);
-	const [menu, setMenu] = useState<ContextMenuProps | null>(null);
+	const [contextMenu, setContextMenu] = useState<NodeContextMenuProps | null>(null);
 	const ref: Ref<any> = useRef(null);
 
-	const onNodeContextMenu = useCallback(
-		(event: React.MouseEvent, node: Node) => {
+	const onNodeContextMenu: NodeMouseHandler = useCallback(
+		(event, node) => {
 			// Prevent native context menu from showing
 			event.preventDefault();
 
-			// Get the pane's bounding rectangle (it may not fill the full screen)
-			const pane = ref.current.getBoundingClientRect();
+			// Calculate position relative to the pane
+			const { left, top } = ref.current.getBoundingClientRect();
+			const x = event.clientX - left;
+			const y = event.clientY - top;
 
-			// Calculate the click position relative to the pane
-			const offsetX = event.clientX - pane.left;
-			const offsetY = event.clientY - pane.top;
-
-			// Assume fixed menu dimensions
-			const menuWidth = 200;
-			const menuHeight = 200;
-
-			// Clamp the menu position inside the pane boundaries
-			const left = offsetX + menuWidth > pane.width ? pane.width - menuWidth : offsetX;
-			const top = offsetY + menuHeight > pane.height ? pane.height - menuHeight : offsetY;
-
-			setMenu({
-				node: node,
-				left,
-				top,
+			setContextMenu({
+				x,
+				y,
+				nodeId: node.id,
+				isOpen: true,
 			});
 		},
-		[setMenu],
+		[ref]
 	);
 
+	const handleDeleteNode = useCallback(() => {
+		if (contextMenu) {
+			setNodes((nds) => nds.filter((node) => node.id !== contextMenu.nodeId));
+			setContextMenu(null);
+		}
+	}, [contextMenu, setNodes]);
+
+	const handleEditNode = useCallback(() => {
+		if (contextMenu) {
+			// Implement edit functionality
+			console.log(`Editing node: ${contextMenu.nodeId}`);
+			setContextMenu(null);
+		}
+	}, [contextMenu]);
+
+	const handleDuplicateNode = useCallback(() => {
+		if (contextMenu) {
+			const nodeToClone = nodes.find((node) => node.id === contextMenu.nodeId);
+			if (nodeToClone) {
+				const newNode = {
+					...nodeToClone,
+					id: `${nodeToClone.id}-clone-${Date.now()}`,
+					position: {
+						x: nodeToClone.position.x + 50,
+						y: nodeToClone.position.y + 50,
+					},
+				};
+				setNodes((nds) => [...nds, newNode]);
+			}
+			setContextMenu(null);
+		}
+	}, [contextMenu, nodes, setNodes]);
 
 	return (
 		<div className="w-full h-screen">
 			<ReactFlow
 				ref={ref}
-				onPaneClick={() => setMenu(null)}
+				onPaneClick={() => setContextMenu(null)}
+				onNodeContextMenu={onNodeContextMenu}
 				colorMode='system'
 				nodes={nodes}
 				nodeTypes={nodeTypes}
@@ -67,14 +104,38 @@ export default function Graph() {
 				edges={edges}
 				edgeTypes={edgeTypes}
 				onEdgesChange={onEdgesChange}
-				onNodeContextMenu={onNodeContextMenu}
+				onScroll={() => setContextMenu(null)}
 				onConnect={onConnect}
 				fitView
+				minZoom={0.1}
 			>
 				<Background />
 				<MiniMap />
-				{menu && <ContextMenu {...menu} />}
 				<Controls />
+				{contextMenu && (
+					<div
+						className="custom-context-menu"
+						style={{
+							position: 'absolute',
+							left: `${contextMenu.x}px`,
+							top: `${contextMenu.y}px`,
+							zIndex: 1000,
+						}}
+					>
+						<div className="bg-popover border border-border rounded-md shadow-md p-1 w-56">
+							<div className="cursor-pointer hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm rounded-sm" onClick={handleEditNode}>
+								Edit Node
+							</div>
+							<div className="cursor-pointer hover:bg-accent hover:text-accent-foreground px-2 py-1.5 text-sm rounded-sm" onClick={handleDuplicateNode}>
+								Duplicate Node
+							</div>
+							<div className="h-px my-1 bg-border" />
+							<div className="cursor-pointer hover:bg-accent hover:text-accent-foreground text-destructive px-2 py-1.5 text-sm rounded-sm" onClick={handleDeleteNode}>
+								Delete Node
+							</div>
+						</div>
+					</div>
+				)}
 			</ReactFlow>
 		</div>
 	);

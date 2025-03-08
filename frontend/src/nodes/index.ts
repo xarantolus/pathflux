@@ -9,7 +9,7 @@ export const initialNodes: AppNode[] = [
   {
     id: 'b',
     type: 'position-logger',
-    position: { x: -100, y: 100 },
+    position: { x: -1000, y: -500 },
     data: { label: 'drag me!' },
   },
   { id: 'c', position: { x: 100, y: 100 }, data: { label: 'your ideas' } },
