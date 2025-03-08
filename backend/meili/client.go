@@ -65,7 +65,7 @@ func NewDBClient(ctx context.Context, gitlabConfig config.GitLab, logger *log.Lo
 		logger,
 		ITEMS_INDEX,
 		"id",
-		[]string{"title", "slug", "iid", "description", "labels", "state"},
+		[]string{"title", "slug", "iid", "description", "labels.name", "involved_users.username", "involved_users.name", "state", "kind"},
 		[]string{"group_id", "kind", "state", "updated_at"},
 		[]string{"updated_at"},
 	)
@@ -596,6 +596,33 @@ type Label struct {
 	Description     string `json:"description"`
 	DescriptionHTML string `json:"description_html"`
 	TextColor       string `json:"text_color"`
+}
+
+type Sort string
+
+const (
+	SortNewest    Sort = "newest"
+	SortRelevance Sort = "relevance"
+)
+
+func ParseSort(sort string) Sort {
+	switch sort {
+	case "newest":
+		return SortNewest
+	case "relevance":
+		return SortRelevance
+	default:
+		return ""
+	}
+}
+
+func (s Sort) ToFilter() string {
+	switch s {
+	case SortNewest:
+		return "updated_at:desc"
+	default:
+		return ""
+	}
 }
 
 type GitLabItemState string

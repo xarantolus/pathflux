@@ -15,7 +15,9 @@ func (s *Server) SearchUsers(c *fiber.Ctx) error {
 }
 
 func (s *Server) SearchItems(c *fiber.Ctx) error {
-	items, err := s.DB.SearchItems(c.Context(), c.Query("q"), meili.ParseItemState(c.Query("state")))
+	state := meili.ParseItemState(c.Query("state"))
+	sort := meili.ParseSort(c.Query("sort"))
+	items, err := s.DB.SearchItems(c.Context(), c.Query("q"), state, sort)
 	if err != nil {
 		return err
 	}

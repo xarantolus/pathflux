@@ -36,6 +36,7 @@ interface SearchItem {
 export default function Experiment() {
 	const [query, setQuery] = useState('');
 	const [itemState, setItemState] = useState('all');
+	const [sortOrder, setSortOrder] = useState('relevance');
 
 	const [results, setResults] = useState<SearchItem[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -79,7 +80,7 @@ export default function Experiment() {
 			setError('');
 
 			const response = await fetch(
-				`/api/v1/items/search?q=${encodeURIComponent(searchQuery)}&state=${state}`,
+				`/api/v1/items/search?q=${encodeURIComponent(searchQuery)}&state=${state}&sort=${sortOrder}`,
 				{ signal: abortController.signal }
 			);
 
@@ -124,7 +125,7 @@ export default function Experiment() {
 				abortControllerRef.current.abort();
 			}
 		};
-	}, [query, itemState]);
+	}, [query, itemState, sortOrder]);
 
 	// Get icon based on item kind
 	const getKindIcon = (kind: string, state: string) => {
@@ -183,13 +184,31 @@ export default function Experiment() {
 				<h1 className="text-2xl font-bold mb-6 text-center">PathFlux Search</h1>
 
 				{/* Search input */}
-				<div className="flex w-full gap-2">
-					<Input
-						placeholder="Search items..."
-						className="pl-10 w-full"
-						value={query}
-						onChange={(e) => setQuery(e.target.value)}
-					/>
+				<div className="relative flex items-center w-full">
+					<div className="relative flex-grow">
+						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+						<Input
+							placeholder="Search items..."
+							className="pl-10 w-full pr-8"
+							value={query}
+							onChange={(e) => setQuery(e.target.value)}
+						/>
+						{isLoading && (
+							<div className="absolute right-3 top-1/2 -translate-y-1/2">
+								<div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+							</div>
+						)}
+					</div>
+
+					<Select value={sortOrder} onValueChange={setSortOrder}>
+						<SelectTrigger className="w-[140px] flex-shrink-0">
+							<SelectValue placeholder="Relevance" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="relevance">Relevance</SelectItem>
+							<SelectItem value="newest">Newest</SelectItem>
+						</SelectContent>
+					</Select>
 
 					<Select
 						value={itemState}
