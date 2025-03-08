@@ -23,7 +23,7 @@ export default function NodeContextMenu({
 	bottom,
 	...props
 }: ContextMenuProps) {
-	const { getNode, setNodes, addNodes, setEdges } = useReactFlow();
+	const { setNodes, addNodes, setEdges } = useReactFlow();
 
 	const duplicateNode = useCallback(() => {
 		const position = {

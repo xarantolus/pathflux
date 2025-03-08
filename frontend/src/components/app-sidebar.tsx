@@ -10,7 +10,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Folder, Settings } from "lucide-react"
+import { Folder, Settings, WandSparkles } from "lucide-react"
 import { Link } from "react-router"
 
 
@@ -24,6 +24,11 @@ const items = [
 		title: "My Projects",
 		url: "/",
 		icon: Folder,
+	},
+	{
+		title: "Experiment",
+		url: "/experiment",
+		icon: WandSparkles,
 	},
 	{
 		title: "Settings",

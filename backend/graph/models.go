@@ -1,4 +1,13 @@
-package model
+package graph
+
+import "sync"
+
+type Graph struct {
+	lock sync.RWMutex
+
+	Nodes []*Node `json:"nodes"`
+	Edges []*Edge `json:"edges"`
+}
 
 type Edge struct {
 	ID string `json:"id"`
