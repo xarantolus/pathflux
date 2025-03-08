@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type GitLab struct {
@@ -14,6 +15,9 @@ type GitLab struct {
 	ApplicationSecret string
 
 	GroupIDs []int
+
+	UserUpdateInterval time.Duration
+	ItemUpdateInterval time.Duration
 }
 
 type Config struct {
@@ -26,9 +30,13 @@ type Config struct {
 func FromEnvironment() (c *Config, err error) {
 	c = &Config{}
 
-	var getEnv = func(key string) (string, error) {
+	var getEnv = func(key string, defaultValue ...string) (string, error) {
 		value, ok := os.LookupEnv(key)
 		if !ok {
+			if len(defaultValue) > 0 {
+				return defaultValue[0], nil
+			}
+
 			return "", fmt.Errorf("missing env variable %q", key)
 		}
 		return value, nil
@@ -42,6 +50,24 @@ func FromEnvironment() (c *Config, err error) {
 	c.Port, err = strconv.Atoi(port)
 	if err != nil {
 		return nil, fmt.Errorf("port is not a number: %w", err)
+	}
+
+	userUpdateInterval, err := getEnv("USER_UPDATE_INTERVAL", "6h")
+	if err != nil {
+		return nil, err
+	}
+	c.GitLab.UserUpdateInterval, err = time.ParseDuration(userUpdateInterval)
+	if err != nil {
+		return nil, fmt.Errorf("user update interval is not a valid duration: %w", err)
+	}
+
+	itemUpdateInterval, err := getEnv("ITEM_UPDATE_INTERVAL", "5m")
+	if err != nil {
+		return nil, err
+	}
+	c.GitLab.ItemUpdateInterval, err = time.ParseDuration(itemUpdateInterval)
+	if err != nil {
+		return nil, fmt.Errorf("item update interval is not a valid duration: %w", err)
 	}
 
 	c.MeiliMasterKey, err = getEnv("MEILI_MASTER_KEY")

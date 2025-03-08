@@ -18,3 +18,22 @@ services:
       - .env
     networks:
       - internal_net
+
+  pathflux:
+    image: pathflux:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment:
+      - "MEILI_HOST=http://meilisearch:7700"
+      - PORT=8000
+      - USER_UPDATE_INTERVAL=6h
+      - ITEM_UPDATE_INTERVAL=5m
+    env_file:
+      - .env
+    networks:
+      - internal_net
+      - external_net

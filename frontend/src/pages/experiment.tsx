@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
-import { Progress } from '@/components/ui/progress';
-import Markdown from '@/components/markdown';
+import Markdown from '@/components/Markdown';
 
 // Define the structure of a search result item based on the example
 interface SearchItem {

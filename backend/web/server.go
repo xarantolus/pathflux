@@ -20,7 +20,7 @@ type Server struct {
 
 func (s *Server) Run() (err error) {
 	app := fiber.New(fiber.Config{
-		AppName: "MOVE Search",
+		AppName: "PathFlux",
 	})
 
 	api := app.Group("/api/v1")

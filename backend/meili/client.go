@@ -185,14 +185,9 @@ func ensureIndexExists(client meilisearch.ServiceManager, logger *log.Logger, in
 }
 
 func (c *DBClient) syncInBackground(ctx context.Context) {
-	// timer will fire immediately, and later every 6 hours
+	// timer will fire immediately, and later we adjust to user requested time
 	userUpdateTimer := time.NewTimer(0)
 	groupItemsTimer := time.NewTimer(0)
-
-	const (
-		userUpdateInterval = 6 * time.Hour
-		groupItemsInterval = 30 * time.Minute
-	)
 
 	for {
 		select {
@@ -209,9 +204,9 @@ func (c *DBClient) syncInBackground(ctx context.Context) {
 				c.logger.Printf("Failed to sync users: %v", err)
 			}
 
-			c.logger.Printf("Synced %d users", count)
+			c.logger.Printf("Synced %d user updates", count)
 
-			userUpdateTimer.Reset(userUpdateInterval)
+			userUpdateTimer.Reset(c.gitlabConfig.UserUpdateInterval)
 		case <-groupItemsTimer.C:
 			c.logger.Printf("Syncing items from %d GitLab group(s)", len(c.groups))
 
@@ -223,12 +218,14 @@ func (c *DBClient) syncInBackground(ctx context.Context) {
 				}
 
 				total += count
-				c.logger.Printf("Synced %d items for group %q", count, group.Name)
+				c.logger.Printf("Synced %d item updates for group %q", count, group.Name)
 			}
 
-			c.logger.Printf("Synced %d items", total)
+			if len(c.groups) > 1 {
+				c.logger.Printf("Synced %d item updates in total", total)
+			}
 
-			groupItemsTimer.Reset(groupItemsInterval)
+			groupItemsTimer.Reset(c.gitlabConfig.ItemUpdateInterval)
 		}
 	}
 }
