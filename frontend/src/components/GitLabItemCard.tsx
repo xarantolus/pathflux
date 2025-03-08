@@ -1,8 +1,5 @@
 import { GitLabItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Bug, GitMerge, Bookmark, CircleDot, FileText, ChevronUp, ChevronDown, ExternalLink } from 'lucide-react';
 import React from 'react';
