@@ -28,12 +28,18 @@ func (c *DBClient) SearchUsers(ctx context.Context, query string) (users []User,
 	return r.Hits, nil
 }
 
-func (c *DBClient) SearchItems(ctx context.Context, query string) (items []GitLabItem, err error) {
+func (c *DBClient) SearchItems(ctx context.Context, query string, state GitLabItemState) (items []GitLabItem, err error) {
 	index := c.client.Index(ITEMS_INDEX)
+
+	var filter []string = nil
+	if state != "" {
+		filter = append(filter, "state="+string(state))
+	}
 
 	resp, err := index.SearchRawWithContext(ctx, query, &meilisearch.SearchRequest{
 		Limit:                10,
 		AttributesToRetrieve: []string{"*"},
+		Filter:               filter,
 	})
 	if err != nil {
 		return nil, err

@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, ExternalLink, ChevronDown, ChevronUp, Bug, GitMerge, Bookmark, CircleDot, FileText } from "lucide-react";
 import Markdown from '@/components/Markdown';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Define the structure of a search result item based on the example
 interface SearchItem {
@@ -31,6 +35,8 @@ interface SearchItem {
 
 export default function Experiment() {
 	const [query, setQuery] = useState('');
+	const [itemState, setItemState] = useState('all');
+
 	const [results, setResults] = useState<SearchItem[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState('');
@@ -49,7 +55,7 @@ export default function Experiment() {
 	};
 
 	// Fetch search results using AbortController
-	const fetchSearchResults = async (searchQuery: string) => {
+	const fetchSearchResults = async (searchQuery: string, state: string) => {
 		if (!searchQuery.trim()) {
 			setResults([]);
 			setIsLoading(false); // Still turn off loading for empty queries
@@ -73,7 +79,7 @@ export default function Experiment() {
 			setError('');
 
 			const response = await fetch(
-				`/api/v1/items/search?q=${encodeURIComponent(searchQuery)}`,
+				`/api/v1/items/search?q=${encodeURIComponent(searchQuery)}&state=${state}`,
 				{ signal: abortController.signal }
 			);
 
@@ -107,7 +113,7 @@ export default function Experiment() {
 	// Immediately fetch results when query changes
 	useEffect(() => {
 		if (query) {
-			fetchSearchResults(query);
+			fetchSearchResults(query, itemState);
 		} else {
 			setResults([]);
 		}
@@ -118,41 +124,107 @@ export default function Experiment() {
 				abortControllerRef.current.abort();
 			}
 		};
-	}, [query]);
+	}, [query, itemState]);
 
 	// Get icon based on item kind
-	const getKindIcon = (kind: string) => {
+	const getKindIcon = (kind: string, state: string) => {
+		let color = '#8c8c8c';  // Default light gray
+		switch (state) {
+			case 'opened':
+				color = '#1aaa55';  // GitLab green for open items
+				break;
+			case 'closed':
+				if (kind === 'merge_request') {
+					color = '#db3b21';  // GitLab red for closed MRs
+				} else {
+					color = '#1f78d1';  // GitLab blue for closed issues
+				}
+				break;
+			case 'merged':
+				color = '#6e49cb';  // GitLab purple for merged
+				break;
+			default:
+				color = '#8c8c8c';  // Light gray for default state
+				break;
+		}
+
+		let getIcon = () => {
 		switch (kind) {
 			case 'issue':
-				return '🐛';
+				return <Bug className="h-4 w-4" color={color} />
 			case 'merge_request':
-				return '🔄';
+				return <GitMerge className="h-4 w-4" color={color} />;
 			case 'epic':
-				return '📌';
+				return <Bookmark className="h-4 w-4" color={color} />;
+			case 'note':
+				return <CircleDot className="h-4 w-4" color={color} />;
 			default:
-				return '📄';
+				return <FileText className="h-4 w-4" color={color} />;
 		}
+	}
+
+		return (
+			<TooltipProvider>
+				<Tooltip delayDuration={300}>
+					<TooltipTrigger>
+						{getIcon()}
+					</TooltipTrigger>
+					<TooltipContent side="top" align="center" className="px-3 py-1.5 text-xs font-medium">
+						{kind} - {state}
+					</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
+		);
 	};
 
 	return (
 		<div className="w-full h-screen flex flex-col items-center p-6">
-			<div className="w-full max-w-2xl">
+			<div className="w-full">
 				<h1 className="text-2xl font-bold mb-6 text-center">PathFlux Search</h1>
 
 				{/* Search input */}
-				<div className="relative flex items-center w-full">
-					<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+				<div className="flex w-full gap-2">
 					<Input
 						placeholder="Search items..."
 						className="pl-10 w-full"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 					/>
-					{isLoading && (
-						<div className="absolute right-3 top-1/2 -translate-y-1/2">
-							<div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
-						</div>
-					)}
+
+					<Select
+						value={itemState}
+						onValueChange={setItemState}
+					>
+						<SelectTrigger className="w-[140px] flex-shrink-0">
+							<SelectValue placeholder="All states" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">
+								<div className="flex items-center">
+									<div className="h-2 w-2 rounded-full bg-[#8c8c8c] mr-2"></div>
+									All states
+								</div>
+							</SelectItem>
+							<SelectItem value="opened">
+								<div className="flex items-center">
+									<div className="h-2 w-2 rounded-full bg-[#1aaa55] mr-2"></div>
+									Open
+								</div>
+							</SelectItem>
+							<SelectItem value="closed">
+								<div className="flex items-center">
+									<div className="h-2 w-2 rounded-full bg-[#db3b21] mr-2"></div>
+									Closed
+								</div>
+							</SelectItem>
+							<SelectItem value="merged">
+								<div className="flex items-center">
+									<div className="h-2 w-2 rounded-full bg-[#6e49cb] mr-2"></div>
+									Merged
+								</div>
+							</SelectItem>
+						</SelectContent>
+					</Select>
 				</div>
 
 				{/* Error state */}
@@ -174,27 +246,31 @@ export default function Experiment() {
 												href={item.web_url}
 												target="_blank"
 												rel="noopener noreferrer"
-												className="flex items-center justify-between p-4 w-full"
+												className="flex items-center justify-between p-2 w-full"
 											>
-												<div className="flex items-center gap-2 flex-grow overflow-hidden">
-													<span className="flex-shrink-0">{getKindIcon(item.kind)}</span>
-													<span className="font-medium truncate">{item.title}</span>
-													<span className="text-xs text-muted-foreground flex-shrink-0">{item.slug}</span>
+												<span className="pr-2">{getKindIcon(item.kind, item.state)}</span>
+												<div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 flex-grow overflow-hidden">
+													<div className="flex items-center gap-2">
+														<span className="font-medium break-words">{item.title}</span>
+													</div>
+													<span className="text-xs text-muted-foreground truncate max-w-full sm:max-w-[30%] sm:text-right sm:ml-auto">{item.slug}</span>
 												</div>
-												<div className="flex items-center">
-													{item.description && (
-														<button
-															onClick={(e) => toggleExpand(item.id, e)}
-															className="p-1 rounded-full hover:bg-muted mr-2"
-															aria-label={expandedItems[item.id] ? "Collapse description" : "Expand description"}
-														>
-															{expandedItems[item.id] ? (
-																<ChevronUp className="h-4 w-4 text-muted-foreground" />
-															) : (
-																<ChevronDown className="h-4 w-4 text-muted-foreground" />
-															)}
-														</button>
-													)}
+												<div className="flex items-center ml-auto">
+													{/* Always render button for consistent layout, but conditionally show/hide */}
+													<Button
+														variant="ghost"
+														size="icon"
+														onClick={(e) => item.description ? toggleExpand(item.id, e) : null}
+														className={cn(item.description ? '' : 'invisible', 'h-8 w-8 flex-shrink-0')}
+														aria-label={expandedItems[item.id] ? "Collapse description" : "Expand description"}
+														tabIndex={item.description ? 0 : -1}
+													>
+														{expandedItems[item.id] ? (
+															<ChevronUp className="h-4 w-4" />
+														) : (
+															<ChevronDown className="h-4 w-4" />
+														)}
+													</Button>
 													<ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
 												</div>
 											</a>
@@ -202,7 +278,7 @@ export default function Experiment() {
 											{/* Expandable description */}
 											{expandedItems[item.id] && item.description && (
 												<div className="px-4 pb-4 pt-0">
-													<Markdown content={item.description}  className="bg-muted/30 p-3 rounded-md text-sm text-foreground/80 whitespace-pre-line" />
+													<Markdown content={item.description} className="bg-muted/30 p-3 rounded-md text-sm text-foreground/80 whitespace-pre-line" />
 												</div>
 											)}
 										</div>

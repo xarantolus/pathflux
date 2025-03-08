@@ -66,7 +66,7 @@ func NewDBClient(ctx context.Context, gitlabConfig config.GitLab, logger *log.Lo
 		ITEMS_INDEX,
 		"id",
 		[]string{"title", "slug", "iid", "description", "labels", "state"},
-		[]string{"group_id", "kind", "updated_at"},
+		[]string{"group_id", "kind", "state", "updated_at"},
 		[]string{"updated_at"},
 	)
 	if err != nil {
@@ -606,6 +606,21 @@ const (
 	GitLabItemStateLocked GitLabItemState = "locked"
 	GitLabItemStateMerged GitLabItemState = "merged"
 )
+
+func ParseItemState(state string) GitLabItemState {
+	switch state {
+	case "opened":
+		return GitLabItemStateOpened
+	case "closed":
+		return GitLabItemStateClosed
+	case "locked":
+		return GitLabItemStateLocked
+	case "merged":
+		return GitLabItemStateMerged
+	default:
+		return ""
+	}
+}
 
 // Basically combines things from an issue, merge request, epic etc.
 type GitLabItem struct {
