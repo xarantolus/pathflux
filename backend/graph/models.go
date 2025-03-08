@@ -9,15 +9,38 @@ type Graph struct {
 	Edges []*Edge `json:"edges"`
 }
 
-type Edge struct {
-	ID string `json:"id"`
-
-	From string `json:"from"`
-	To   string `json:"to"`
+type Position struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 type Node struct {
-	ID string `json:"id"`
+	ID   string `json:"id"`
+	Type string `json:"type"`
 
-	Label string `json:"label"`
+	Data any
+
+	Width  int `json:"width"`
+	Height int `json:"height"`
+
+	Position Position `json:"position"`
+}
+
+type Marker struct {
+	Type   string `json:"type"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	Color  string `json:"color"`
+}
+
+type Edge struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+
+	Source string `json:"source"`
+	Target string `json:"target"`
+
+	MarkerEnd string `json:"markerEnd"`
+
+	Data any `json:"data"`
 }
