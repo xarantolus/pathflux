@@ -29,7 +29,7 @@ export function PositionLoggerNode({
         }
       ],
     "title": "Testing tests for testing purposes with a very long title",
-      "description": "Test whether the description looks good",
+      "description": "Test whether the description looks good Lorem, ipsum dolor sit amet consectetur adipisicing elit. Ab obcaecati repellendus odio nihil ut quaerat dolorum officia aperiam voluptatibus. Itaque atque unde ab pariatur cupiditate possimus quibusdam consectetur maxime numquam.",
       "involved_users": [
         {
           "id": 0,
@@ -59,9 +59,9 @@ export function PositionLoggerNode({
 
   return (
     // We add this class to use the same styles as React Flow's default nodes.
-    <Card className='py-1'>
+    <Card className='py-1 max-w-[48rem]'>
       <CardTitle className="flex flex-col items-center">
-        <h1 className='text-center overflow-wrap-anywhere text-lg font-semibold max-w-[20rem]'>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Ab dolorem quasi, debitis eius nesciunt, incidunt iste nostrum neque doloribus saepe non nam ad dicta, laudantium assumenda tempora vel deserunt ea.</h1>
+        <h1 className='text-center overflow-wrap-anywhere text-lg font-semibold'>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Ab dolorem quasi, debitis eius nesciunt, incidunt iste nostrum neque doloribus saepe non nam ad dicta, laudantium assumenda tempora vel deserunt ea.</h1>
         <Separator />
       </CardTitle>
 
