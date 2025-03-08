@@ -48,3 +48,17 @@ func (c *DBClient) SearchItems(ctx context.Context, query string) (items []GitLa
 
 	return r.Hits, nil
 }
+
+func (c *DBClient) GetUserByID(ctx context.Context, id string) (User, error) {
+	index := c.client.Index(USERS_INDEX)
+
+	var user User
+	err := index.GetDocumentWithContext(ctx, id, &meilisearch.DocumentQuery{
+		Fields: []string{"*"},
+	}, &user)
+	if err != nil {
+		return User{}, err
+	}
+
+	return user, nil
+}
