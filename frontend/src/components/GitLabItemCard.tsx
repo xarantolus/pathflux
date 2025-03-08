@@ -75,12 +75,7 @@ const GitLabItemCard: React.FC<GitLabItemCardProps> = ({ item,
 
 	return (
 		<div className="relative" {...props}>
-			<a
-				href={item.web_url}
-				target="_blank"
-				rel="noopener noreferrer"
-				className="flex items-center justify-between p-2 w-full"
-			>
+			<div className='flex items-center justify-between p-2 w-full'>
 				<span className="pr-2">{getKindIcon(item.kind, item.state)}</span>
 				<div className="flex flex-col w-full overflow-hidden">
 					{/* Title row with ID and timestamp */}
@@ -91,7 +86,13 @@ const GitLabItemCard: React.FC<GitLabItemCardProps> = ({ item,
 					{/* Metadata row */}
 					<div className="flex flex-wrap items-center text-xs text-muted-foreground mt-1 gap-x-4">
 						{/* Path */}
-						<span className="truncate max-w-[200px]">{item.slug}</span>
+						<a
+							href={item.web_url}
+							target="_blank"
+							rel="noopener noreferrer"
+							className='truncate max-w-[200px]'
+							aria-label="Open in GitLab"
+						>{item.slug}</a>
 
 						{/* Dates */}
 						{item.updated_at !== item.created_at && (
@@ -113,25 +114,39 @@ const GitLabItemCard: React.FC<GitLabItemCardProps> = ({ item,
 					</div>
 				)}
 
-				<div className="flex items-center ml-2">
-					{/* Expand button */}
+				<Button
+					variant="ghost"
+					size="icon"
+					onClick={(e) => { e.preventDefault(); item.description ? setExpanded(!expanded) : null }}
+					className={cn(item.description ? '' : 'invisible', 'h-8 w-8 flex-shrink-0')}
+					aria-label={expanded ? "Collapse description" : "Expand description"}
+					tabIndex={item.description ? 0 : -1}
+				>
+					{expanded ? (
+						<ChevronUp className="h-4 w-4" />
+					) : (
+						<ChevronDown className="h-4 w-4" />
+					)}
+				</Button>
+
+				{item.web_url && (
 					<Button
 						variant="ghost"
 						size="icon"
-						onClick={(e) => { e.preventDefault(); item.description ? setExpanded(!expanded) : null }}
-						className={cn(item.description ? '' : 'invisible', 'h-8 w-8 flex-shrink-0')}
-						aria-label={expanded ? "Collapse description" : "Expand description"}
-						tabIndex={item.description ? 0 : -1}
+						className="h-8 w-8 flex-shrink-0 p-0"
+						asChild
 					>
-						{expanded ? (
-							<ChevronUp className="h-4 w-4" />
-						) : (
-							<ChevronDown className="h-4 w-4" />
-						)}
+						<a
+							href={item.web_url}
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label="Open in GitLab"
+						>
+							<ExternalLink className="h-4 w-4 text-muted-foreground" />
+						</a>
 					</Button>
-					<ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-				</div>
-			</a>
+				)}
+			</div>
 
 			{/* Expandable description */}
 			{expanded && item.description && (
