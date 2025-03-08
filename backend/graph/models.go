@@ -18,8 +18,6 @@ type Node struct {
 	ID   string `json:"id"`
 	Type string `json:"type"`
 
-	Data any
-
 	Width  int `json:"width"`
 	Height int `json:"height"`
 
@@ -41,6 +39,4 @@ type Edge struct {
 	Target string `json:"target"`
 
 	MarkerEnd string `json:"markerEnd"`
-
-	Data any `json:"data"`
 }
