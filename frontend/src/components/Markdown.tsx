@@ -5,15 +5,17 @@ import {marked} from 'marked';
 interface MarkdownProps extends React.HTMLAttributes<HTMLDivElement> {
 	content: string;
 }
-const sanitize = (content: string, markdown: boolean = true) => {
-	if (markdown && isMarkdown(content)) {
-		content = marked(content, {
-			gfm: true,
-		}) as string;
-	}
+const sanitize = (content: string) => {
+	content = marked(content, {
+		gfm: true,
+	}) as string;
 
 	return DOMPurify.sanitize(content, {
-		ALLOWED_TAGS: ['mark', 'p', 'strong', 'em', 'ul', 'li', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3']
+		ALLOWED_TAGS: [
+			'mark', 'p', 'strong', 'em', 'ul', 'li', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+			// tables etc.
+			'table', 'thead', 'tbody', 'tr', 'th', 'td', "input", "br"
+		],
 	})
 	// fix <mark> tags getting escaped in code blocks
 	.replace(/&lt;(\/?)mark&gt;/g, '<$1mark>')
@@ -22,13 +24,8 @@ const sanitize = (content: string, markdown: boolean = true) => {
 	.replace(/<\/p>\s*<\/li>/g, '</li>')
 	// Remove lines that contain only whitespace
 	.replace(/^\s*[\r\n]+/gm, '\n')
-	// Place <br> elements instead of newlines, except when the elemnt is already a block element
-	.replace(/(?<!<\/(?:p|li|blockquote|h1|h2|h3)>)\n+(?!<\/?(?:p|li|blockquote|h1|h2|h3)>)/g, '<br>')
-}
-
-const isMarkdown = (content: string) => {
-	// Simple check for markdown content
-	return /[*_~`]/.test(content);
+	// delete repeated <br>
+	.replace(/(<br>)+/g, '<br>')
 }
 
 const Markdown: React.FC<MarkdownProps> = ({ content, className, ...props }) => {
@@ -37,7 +34,7 @@ const Markdown: React.FC<MarkdownProps> = ({ content, className, ...props }) => 
 	return (
 		<div
 			dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-			className={`overflow-auto break-words ${className || ''}`}
+			className={`markdown overflow-auto break-words ${className || ''}`}
 			{...props}
 		/>
 	);

@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from './ui/separator';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Badge } from './ui/badge';
 
 // Define the structure of a search result item based on the example
 interface SearchItem {
@@ -15,7 +18,14 @@ interface SearchItem {
 	kind: string;
 	web_url: string;
 	slug: string;
-	labels: string[] | null;
+	labels: {
+		id: number;
+		name: string;
+		color: string;
+		description: string;
+		description_html: string;
+		text_color: string;
+	}[];
 	title: string;
 	description: string;
 	involved_users: {
@@ -153,15 +163,15 @@ export default function ItemSearch({
 		let getIcon = () => {
 		switch (kind) {
 			case 'issue':
-				return <Bug className="h-4 w-4" color={color} />
+				return <Bug className="h-6 w-6" color={color} />
 			case 'merge_request':
-				return <GitMerge className="h-4 w-4" color={color} />;
+				return <GitMerge className="h-6 w-6" color={color} />;
 			case 'epic':
-				return <Bookmark className="h-4 w-4" color={color} />;
+				return <Bookmark className="h-6 w-6" color={color} />;
 			case 'note':
-				return <CircleDot className="h-4 w-4" color={color} />;
+				return <CircleDot className="h-6 w-6" color={color} />;
 			default:
-				return <FileText className="h-4 w-4" color={color} />;
+				return <FileText className="h-6 w-6" color={color} />;
 		}
 	}
 
@@ -253,12 +263,11 @@ export default function ItemSearch({
 						{error}
 					</div>
 				)}
-
 				{/* Results */}
 				{results.length > 0 && (
 					<Card className="mt-4">
 						<CardContent className="p-0">
-							<ul className="divide-y">
+							<ul>
 								{results.map((item) => (
 									<li key={item.id} className="hover:bg-accent/50 transition-colors">
 										<div className="relative">
@@ -269,14 +278,86 @@ export default function ItemSearch({
 												className="flex items-center justify-between p-2 w-full"
 											>
 												<span className="pr-2">{getKindIcon(item.kind, item.state)}</span>
-												<div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 flex-grow overflow-hidden">
-													<div className="flex items-center gap-2">
+												<div className="flex flex-col w-full overflow-hidden">
+													{/* Title row with ID and timestamp */}
+													<div className="flex items-start justify-between gap-2">
 														<span className="font-medium break-words">{item.title}</span>
 													</div>
-													<span className="text-xs text-muted-foreground truncate max-w-full sm:max-w-[30%] sm:text-right sm:ml-auto">{item.slug}</span>
+
+													{/* Metadata row */}
+													<div className="flex flex-wrap items-center text-xs text-muted-foreground mt-1 gap-x-4">
+														{/* Path */}
+														<span className="truncate max-w-[200px]">{item.slug}</span>
+
+														{/* Dates */}
+														{item.updated_at !== item.created_at && (
+															<span>
+																Updated: {new Date(item.updated_at).toLocaleString()}
+															</span>
+														)}
+													</div>
+
+													{/* Labels */}
+													{item.labels && item.labels.length > 0 && (
+														<div className="flex flex-wrap gap-1 mt-1">
+															{item.labels.map((label, i) => {
+																// Check if label is an object or string
+																const labelName = typeof label === 'string' ? label : label.name;
+																const labelColor = typeof label === 'object' && label.color ? label.color : null;
+																const textColor = typeof label === 'object' && label.text_color ? label.text_color : null;
+
+																return (
+																	<Badge
+																		key={typeof label === 'object' && label.id ? label.id : i}
+																		style={{
+																			backgroundColor: labelColor ? `#${labelColor}` : undefined,
+																			color: textColor ? `#${textColor}` : undefined
+																		}}
+																		variant="secondary"
+																	>
+																		{labelName}
+																	</Badge>
+																);
+															})}
+														</div>
+													)}
 												</div>
-												<div className="flex items-center ml-auto">
-													{/* Always render button for consistent layout, but conditionally show/hide */}
+
+												{/* Involved users */}
+												{item.involved_users && item.involved_users.length > 0 && (
+													<TooltipProvider>
+														<Tooltip>
+															<TooltipTrigger asChild>
+																<div className="flex -space-x-2 ml-2">
+																	{item.involved_users.slice(0, 3).map(user => (
+																		<Avatar key={user.id} className="h-6 w-6 border border-border">
+																			<AvatarImage
+																				src={user.avatar_url}
+																				alt={user.name || user.username}
+																			/>
+																			<AvatarFallback className="text-xs">
+																				{(user.name || user.username || "").charAt(0).toUpperCase()}
+																			</AvatarFallback>
+																		</Avatar>
+																	))}
+																	{item.involved_users.length > 3 && (
+																		<Avatar className="h-6 w-6 border border-border bg-muted">
+																			<AvatarFallback className="text-xs bg-muted">
+																				+{item.involved_users.length - 3}
+																			</AvatarFallback>
+																		</Avatar>
+																	)}
+																</div>
+															</TooltipTrigger>
+															<TooltipContent>
+																{item.involved_users.map(user => user.name || user.username).join(', ')}
+															</TooltipContent>
+														</Tooltip>
+													</TooltipProvider>
+												)}
+
+												<div className="flex items-center ml-2">
+													{/* Expand button */}
 													<Button
 														variant="ghost"
 														size="icon"
@@ -298,10 +379,15 @@ export default function ItemSearch({
 											{/* Expandable description */}
 											{expandedItems[item.id] && item.description && (
 												<div className="px-4 pb-4 pt-0">
-													<Markdown content={item.description} className="bg-muted/30 p-3 rounded-md text-sm text-foreground/80 whitespace-pre-line" />
+															<Markdown
+																content={item.description}
+																className="prose dark:prose-invert max-w-none prose-sm text-foreground/80"
+															/>
 												</div>
 											)}
 										</div>
+										{/* Add separator between items instead of using divide-y */}
+										{results.indexOf(item) !== results.length - 1 && <Separator />}
 									</li>
 								))}
 							</ul>
