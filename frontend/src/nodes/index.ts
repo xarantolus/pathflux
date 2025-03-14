@@ -1,8 +1,8 @@
 import type { NodeTypes } from '@xyflow/react';
 
-import { PositionLoggerNode } from './PositionLoggerNode';
+import { TextGraphNode } from './TextGraphNode';
 import { AppNode } from './types';
-import { TextEditorNode } from './TextEditorNode';
+import { PositionLoggerNode } from './PositionLoggerNode';
 
 export const initialNodes: AppNode[] = [
   { id: 'a', type: 'input', position: { x: 0, y: 0 }, data: { label: 'wire' } },
@@ -20,15 +20,15 @@ export const initialNodes: AppNode[] = [
     data: { label: 'with React Flow' },
   },
   {
-    id: 'editor',
-    type: 'text-editor',
-    position: { x: -150, y: 200 },
-    data: { text: 'Hello, world!\n\nHello, world!\n\nHello, world!\n\nHello, world!\n\nHello, world!\n\nHello, world!\n\n' }
+    id: 'text',
+    type: 'text',
+    position: { x: -150, y: -200 },
+    data: { content: '# Hello, world!\n\nHello, world!\n\nHello, world!\n\nHello, world!\n\nHello, world!\n\nHello, world!\n\n' }
   },
 ];
 
 export const nodeTypes = {
   'position-logger': PositionLoggerNode,
-  'text-editor': TextEditorNode,
+  'text': TextGraphNode,
   // Add any of your custom nodes here!
 } satisfies NodeTypes;

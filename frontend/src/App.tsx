@@ -1,4 +1,5 @@
 import '@xyflow/react/dist/style.css';
+import 'reactjs-tiptap-editor/style.css';
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -7,6 +8,7 @@ import { Route, Routes } from "react-router";
 import Graph from "./pages/graph";
 import { useEffect, useState } from 'react';
 import Experiment from './pages/experiment';
+import { TooltipProvider } from './components/ui/tooltip';
 
 export default function App() {
   const [isDark, setIsDark] = useState(false);
@@ -27,16 +29,19 @@ export default function App() {
   }, []);
 
   return (
-    <SidebarProvider className={isDark ? "dark" : ""}>
-      <AppSidebar />
-      <div className="relative flex flex-col w-full h-full">
-        <SidebarTrigger className="absolute top-2 left-2 z-10" />
-        <Routes>
-          <Route path="/" element={<Graph />} />
-          <Route path="/experiment" element={<Experiment />} />
-          <Route path="/settings" element={<h1>Test</h1>} />
-        </Routes>
-      </div>
-    </SidebarProvider>
+    <TooltipProvider>
+      <SidebarProvider className={isDark ? "dark" : ""}>
+
+        <AppSidebar />
+        <div className="relative flex flex-col w-full h-full">
+          <SidebarTrigger className="absolute top-2 left-2 z-10" />
+          <Routes>
+            <Route path="/" element={<Graph />} />
+            <Route path="/experiment" element={<Experiment />} />
+            <Route path="/settings" element={<h1>Test</h1>} />
+          </Routes>
+        </div>
+      </SidebarProvider>
+    </TooltipProvider>
   );
 }

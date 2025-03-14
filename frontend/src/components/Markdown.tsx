@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import DOMPurify from 'dompurify';
 import {marked} from 'marked';
 
@@ -29,7 +29,7 @@ const sanitize = (content: string) => {
 }
 
 const Markdown: React.FC<MarkdownProps> = ({ content, className, ...props }) => {
-	const sanitizedContent = sanitize(content);
+	const sanitizedContent = useMemo(() => sanitize(content), [content]);
 
 	return (
 		<div

@@ -1,4 +1,4 @@
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, NodeResizeControl, Position, type NodeProps } from '@xyflow/react';
 
 import { type PositionLoggerNode } from './types';
 import GitLabItemCard from '@/components/GitLabItemCard';
@@ -8,6 +8,7 @@ import { Card, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
 export function PositionLoggerNode({
+  selected,
   // positionAbsoluteX,
   // positionAbsoluteY,
   // data,
@@ -59,7 +60,9 @@ export function PositionLoggerNode({
 
   return (
     // We add this class to use the same styles as React Flow's default nodes.
-    <Card className='py-1 max-w-[48rem]'>
+    <Card className='w-full h-full p-4'>
+      { selected && <NodeResizeControl /> }
+
       <CardTitle className="flex flex-col items-center">
         <h1 className='text-center overflow-wrap-anywhere text-lg font-semibold'>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Ab dolorem quasi, debitis eius nesciunt, incidunt iste nostrum neque doloribus saepe non nam ad dicta, laudantium assumenda tempora vel deserunt ea.</h1>
         <Separator />

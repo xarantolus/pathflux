@@ -58,6 +58,10 @@ export default function Graph() {
 		[ref]
 	);
 
+	const onNodeDoubleClick: NodeMouseHandler = useCallback((_, node) => {
+		console.log(`Double clicked node: ${node.id}`);
+	}, []);
+
 	const handleDeleteNode = useCallback(() => {
 		if (contextMenu) {
 			setNodes((nds) => nds.filter((node) => node.id !== contextMenu.nodeId));
@@ -97,6 +101,7 @@ export default function Graph() {
 				ref={ref}
 				onPaneClick={() => setContextMenu(null)}
 				onNodeContextMenu={onNodeContextMenu}
+				onNodeDoubleClick={onNodeDoubleClick}
 				colorMode='system'
 				nodes={nodes}
 				nodeTypes={nodeTypes}
